@@ -1,0 +1,61 @@
+/*
+	Scale3x
+
+Filter:	Nearest
+Scale:	3x
+
+Scale3x is real-time graphics effect able to increase the size of small bitmaps guessing the missing pixels without blurring the images.
+It was originally developed for the AdvanceMAME project in the year 2001 to improve the quality of old games with a low video resolution.
+
+Homepage: http://scale2x.sourceforge.net/
+Copyright (C) 2001, 2002, 2003, 2004 Andrea Mazzoleni
+License: GNU-GPL
+
+*/
+
+struct input
+{
+	float2 video_size;
+	float2 texture_size;
+	float2 output_size;
+};
+
+struct out_vertex {
+	float4 position : POSITION;
+	float2 texCoord : TEXCOORD0;
+	float4 t1 : TEXCOORD1;
+	float4 t2 : TEXCOORD2;
+	float4 t3 : TEXCOORD3;
+};
+
+bool eq(float3 A, float3 B){
+	return all(A==B);
+}
+
+bool neq(float3 A, float3 B){
+	return any(A!=B);
+}
+
+void main(
+	float4 aPosition : POSITION,
+	float2 aTexcoord : TEXCOORD0,
+	uniform float4x4 wvp,
+	uniform input IN,
+	out out_vertex OUT
+)
+{
+	float4 position = aPosition;
+	float2 texCoord = aTexcoord;
+
+	OUT.position = mul(wvp, position);
+	OUT.texCoord = texCoord;
+
+	float2 ps = float2(1.0/IN.texture_size.x, 1.0/IN.texture_size.y);
+	float dx = ps.x;
+	float dy = ps.y;
+
+	OUT.texCoord = texCoord;
+	OUT.t1 = texCoord.xxxy + float4(-dx,  0, dx,-dy);	// A, B, C
+	OUT.t2 = texCoord.xxxy + float4(-dx,  0, dx,  0);	// D, E, F
+	OUT.t3 = texCoord.xxxy + float4(-dx,  0, dx, dy);	// G, H, I
+}
