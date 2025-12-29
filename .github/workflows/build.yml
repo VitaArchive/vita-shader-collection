@@ -1,0 +1,64 @@
+name: Build Check
+on:
+  push:
+    paths-ignore:
+      - 'readme.md'
+      - 'todo.md'
+      - 'LICENSE'
+      - 'Dockerfile'
+      - '**/README.md'
+      - 'docs/**'
+    branches: [ master, dev ]
+  pull_request:
+    paths-ignore:
+      - 'readme.md'
+      - 'todo.md'
+      - 'LICENSE'
+      - 'Dockerfile'
+      - '**/README.md'
+      - 'docs/**'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare steps
+        run: |
+          sudo apt-get update && sudo apt-get install qemu-kvm qemu-user-static
+          curl https://api.github.com/repos/vitasdk/autobuilds/releases  | grep browser_download_url | grep linux | head -n 1 | cut -d '"' -f 4 | xargs wget
+          tar xjf *.tar.bz2
+          wget https://releases.linaro.org/archive/15.02/components/toolchain/binaries/arm-linux-gnueabihf/gcc-linaro-4.9-2015.02-3-x86_64_arm-linux-gnueabihf.tar.xz
+          tar xf gcc-linaro-4.9-2015.02-3-x86_64_arm-linux-gnueabihf.tar.xz
+          rm gcc-linaro-4.9-2015.02-3-x86_64_arm-linux-gnueabihf.tar.xz
+          git clone https://github.com/JagerDesu/vita-shaders
+          echo "VITASDK=$(pwd)/vitasdk" >> $GITHUB_ENV
+          echo "$(pwd)/vitasdk/bin" >> $GITHUB_PATH
+          echo "$(pwd)/gcc-linaro-4.9-2015.02-3-x86_64_arm-linux-gnueabihf/bin" >> $GITHUB_PATH
+
+      - name: Compile Shacc
+        run: |
+          make -C vita-shaders
+          mv vita-shaders/*.bin ./
+
+      - name: Compile Shaders
+        run: |
+          sudo sysctl -w vm.mmap_min_addr=0
+          make
+          mkdir -p build/lib
+          mkdir -p build/includes
+          cp shaders/*.h build/includes/
+          cp libvitashaders.a build/lib/
+
+      - name: Upload Environment
+        uses: actions/upload-artifact@v6
+        with:
+          name: compiled-shaders
+          compression-level: 2
+          path: |
+            build/
